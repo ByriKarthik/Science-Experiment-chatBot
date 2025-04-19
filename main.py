@@ -1,13 +1,23 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
+from dotenv import load_dotenv
 import google.generativeai as genai
+import os
+
+# Load environment variables from .env file
+load_dotenv()
+api_key = os.getenv("GEMINI_API_KEY")
+
+# Check if API key is loaded properly
+if not api_key:
+    raise ValueError("⚠️ GEMINI_API_KEY not found in .env file.")
+
+# Configure Gemini API
+genai.configure(api_key=api_key)
 
 # Initialize Flask app
 app = Flask(__name__)
 CORS(app)  # Enable CORS for all origins
-
-# Configure Gemini API
-genai.configure(api_key="AIzaSyDiuczDaVsxxEZPqjKCBwAamZXCliDEqR4")
 
 # Initialize Gemini model
 model = genai.GenerativeModel("gemini-1.5-pro-latest")
