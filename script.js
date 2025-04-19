@@ -33,11 +33,16 @@ const chatForm = document.getElementById('chat-form');
       showTyping();
 
       try {
-        const res = await fetch('http://localhost:5000/chat', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ message })
-        });
+        const apiUrl = window.location.port === "5500"
+        ? "http://localhost:5000/chat"
+        : "/chat";
+      
+      const res = await fetch(apiUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message })
+      });
+      
 
         if (!res.ok) throw new Error('Network response was not ok');
 
