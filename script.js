@@ -5,47 +5,6 @@ const sendBtn = document.getElementById('send-btn');
 const typingIndicator = document.getElementById('typing-indicator');
 const suggestionButtons = document.querySelectorAll('.suggestion-btn');
 
-// Typing effect function
-function typeWriterEffect(targetElement, text, delay = 20) {
-  let i = 0;
-  const interval = setInterval(() => {
-    targetElement.innerHTML += text.charAt(i);
-    i++;
-    if (i === text.length) clearInterval(interval);
-    chatLog.scrollTop = chatLog.scrollHeight;
-  }, delay);
-}
-
-// Function to add messages to chat
-function addMessage(content, isUser, typewriter = false) {
-  const messageDiv = document.createElement('div');
-  messageDiv.className = `chat-message ${isUser ? 'user' : 'bot'}`;
-
-  const bubbleDiv = document.createElement('div');
-  bubbleDiv.className = 'chat-bubble';
-
-  if (isUser) {
-    bubbleDiv.innerHTML = `<strong>You:</strong> ${content}`;
-  } else {
-    const label = document.createElement('strong');
-    label.textContent = 'Bot: ';
-    bubbleDiv.appendChild(label);
-
-    const span = document.createElement('span');
-    bubbleDiv.appendChild(span);
-
-    if (typewriter) {
-      typeWriterEffect(span, content);
-    } else {
-      span.innerHTML = content;
-    }
-  }
-
-  messageDiv.appendChild(bubbleDiv);
-  chatLog.appendChild(messageDiv);
-  chatLog.scrollTop = chatLog.scrollHeight;
-}
-
 function showTyping() {
   typingIndicator.style.display = 'block';
   chatLog.scrollTop = chatLog.scrollHeight;
@@ -55,9 +14,43 @@ function hideTyping() {
   typingIndicator.style.display = 'none';
 }
 
-// Send message to backend
+async function addMessageWithMarkdown(content, isUser, typewriter = false) {
+  const messageDiv = document.createElement('div');
+  messageDiv.className = `chat-message ${isUser ? 'user' : 'bot'}`;
+
+  const bubbleDiv = document.createElement('div');
+  bubbleDiv.className = 'chat-bubble';
+
+  const speaker = `<strong>${isUser ? 'You' : 'Bot'}:</strong>`;
+  bubbleDiv.innerHTML = speaker;
+  messageDiv.appendChild(bubbleDiv);
+  chatLog.appendChild(messageDiv);
+  chatLog.scrollTop = chatLog.scrollHeight;
+
+  if (isUser || !typewriter) {
+    const rendered = DOMPurify.sanitize(marked.parse(content || ''));
+    bubbleDiv.innerHTML = `${speaker}<br>${rendered}`;
+  } else {
+    const plainText = content || '';
+    const displayElement = document.createElement('div');
+    bubbleDiv.appendChild(document.createElement('br'));
+    bubbleDiv.appendChild(displayElement);
+
+    for (let i = 0; i < plainText.length; i++) {
+      displayElement.textContent += plainText[i];
+      await new Promise(resolve => setTimeout(resolve, 15));
+      chatLog.scrollTop = chatLog.scrollHeight;
+    }
+
+    const rendered = DOMPurify.sanitize(marked.parse(plainText));
+    bubbleDiv.innerHTML = `${speaker}<br>${rendered}`;
+  }
+
+  chatLog.scrollTop = chatLog.scrollHeight;
+}
+
 async function sendMessage(message) {
-  addMessage(message, true); // Show user message
+  await addMessageWithMarkdown(message, true);
   userInput.value = '';
   userInput.disabled = true;
   sendBtn.disabled = true;
@@ -75,19 +68,12 @@ async function sendMessage(message) {
     });
 
     if (!res.ok) throw new Error('Network response was not ok');
-
     const data = await res.json();
-    const cleanHTML = DOMPurify.sanitize(marked.parse(data.response || 'Sorry, I couldn’t process that.'));
-
-    // Strip HTML tags for typing effect (optional enhancement)
-    const tempDiv = document.createElement('div');
-    tempDiv.innerHTML = cleanHTML;
-    const plainText = tempDiv.textContent || tempDiv.innerText || '';
-
-    addMessage(plainText, false, true); // Show bot message with typing effect
+    const botReply = data.response || 'Sorry, I couldn’t process that.';
+    await addMessageWithMarkdown(botReply, false, true);
 
   } catch (error) {
-    addMessage('Oops! Something went wrong. Please try again.', false);
+    await addMessageWithMarkdown('Oops! Something went wrong. Please try again.', false);
     console.error(error);
   } finally {
     hideTyping();
@@ -97,7 +83,6 @@ async function sendMessage(message) {
   }
 }
 
-// Form submission handler
 chatForm.addEventListener('submit', async (e) => {
   e.preventDefault();
   const message = userInput.value.trim();
@@ -105,7 +90,7 @@ chatForm.addEventListener('submit', async (e) => {
   await sendMessage(message);
 });
 
-// Suggestion button clicks
+// Handle suggestion buttons
 suggestionButtons.forEach(btn => {
   btn.addEventListener('click', () => {
     const prompt = btn.dataset.prompt;
@@ -114,5 +99,5 @@ suggestionButtons.forEach(btn => {
   });
 });
 
-// Auto-focus on input
+// Auto-focus input on load
 userInput.focus();
